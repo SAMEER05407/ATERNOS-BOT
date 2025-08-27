@@ -4,9 +4,9 @@ const StatusServer = require('./server');
 
 // Configuration - Replace with your Aternos server details
 const config = {
-  host: process.env.MC_HOST || 'SAMEER05404.aternos.me',
-  port: parseInt(process.env.MC_PORT) || 51477,
-  username: process.env.MC_USERNAME || 'Bot_' + Math.floor(Math.random() * 1000)
+  host: process.env.MC_HOST || 'SAMEER05404-7xH4.aternos.me',
+  port: parseInt(process.env.MC_PORT) || 22500,
+  username: process.env.MC_USERNAME || 'DARK_WORLD_1'.replace(/[^a-zA-Z0-9_]/g, '_')
 };
 
 console.log('🚀 Starting Minecraft AFK Bot...');
@@ -25,15 +25,15 @@ const server = new StatusServer(bot);
 async function start() {
   try {
     // Start the web server first
-    await server.start(8080);
-    
+    await server.start(5000);
+
     // Then start the bot
     bot.connect();
-    
+
     console.log('✅ Application started successfully!');
     console.log('🤖 Bot will automatically connect and reconnect as needed');
     console.log('🌐 Visit the status page to monitor the bot');
-    
+
   } catch (error) {
     console.error('❌ Failed to start application:', error);
     process.exit(1);

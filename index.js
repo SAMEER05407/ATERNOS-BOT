@@ -4,8 +4,8 @@ const StatusServer = require('./server');
 
 // Configuration - Replace with your Aternos server details
 const config = {
-  host: process.env.MC_HOST || 'SAMEER05404-7xH4.aternos.me',
-  port: parseInt(process.env.MC_PORT) || 22500,
+  host: process.env.MC_HOST || 'SAMEER05404.aternos.me',
+  port: parseInt(process.env.MC_PORT) || 51477,
   username: process.env.MC_USERNAME || 'DARK_WORLD_1'.replace(/[^a-zA-Z0-9_]/g, '_')
 };
 

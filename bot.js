@@ -24,10 +24,10 @@ class MinecraftBot {
         host: this.config.host,
         port: this.config.port,
         username: this.config.username,
-        version: '1.21.1', // Specific version
+        // version will be auto-detected
         auth: 'offline', // For cracked servers
         skipValidation: true, // Skip username validation
-        checkTimeoutInterval: 30000,
+        checkTimeoutInterval: 60000, // Increased timeout
         hideErrors: false
       });
 
@@ -92,44 +92,78 @@ class MinecraftBot {
       clearTimeout(this.reconnectTimeout);
     }
     
-    console.log('❌ Disconnected, retrying in 5 seconds...');
+    console.log('❌ Disconnected, retrying in 15 seconds...');
     this.reconnectTimeout = setTimeout(() => {
       this.connect();
-    }, 5000);
+    }, 15000);
   }
 
   startActivity() {
     if (this.activityInterval) return;
     
-    // Keep the bot active by moving randomly every 10-30 seconds
+    // Keep the bot active with continuous movement patterns
     this.activityInterval = setInterval(() => {
       if (!this.connected || !this.bot) return;
       
       try {
-        const actions = [
-          () => this.bot.setControlState('jump', true),
-          () => this.bot.setControlState('forward', true),
-          () => this.bot.setControlState('back', true),
-          () => this.bot.setControlState('left', true),
-          () => this.bot.setControlState('right', true)
+        // Random movement patterns for exploration
+        const movementPatterns = [
+          () => {
+            // Walk forward and jump occasionally
+            this.bot.setControlState('forward', true);
+            if (Math.random() < 0.3) this.bot.setControlState('jump', true);
+          },
+          () => {
+            // Turn and walk
+            this.bot.setControlState('left', true);
+            this.bot.setControlState('forward', true);
+          },
+          () => {
+            // Turn and walk
+            this.bot.setControlState('right', true);
+            this.bot.setControlState('forward', true);
+          },
+          () => {
+            // Walk backward
+            this.bot.setControlState('back', true);
+          },
+          () => {
+            // Sprint forward
+            this.bot.setControlState('forward', true);
+            this.bot.setControlState('sprint', true);
+          }
         ];
         
-        // Perform a random action
-        const action = actions[Math.floor(Math.random() * actions.length)];
-        action();
+        // Clear previous states
+        this.bot.clearControlStates();
         
-        // Stop the action after a short time
+        // Perform random movement
+        const pattern = movementPatterns[Math.floor(Math.random() * movementPatterns.length)];
+        pattern();
+        
+        // Continue movement for longer duration
+        const moveDuration = 2000 + Math.random() * 3000; // 2-5 seconds
         setTimeout(() => {
           if (this.bot) {
             this.bot.clearControlStates();
+            
+            // Small pause between movements
+            setTimeout(() => {
+              if (this.bot && this.connected) {
+                // Look around randomly
+                const yaw = Math.random() * Math.PI * 2;
+                const pitch = (Math.random() - 0.5) * 0.5;
+                this.bot.look(yaw, pitch);
+              }
+            }, 500);
           }
-        }, 100 + Math.random() * 200);
+        }, moveDuration);
         
-        console.log('🤖 Performing activity to stay active');
+        console.log('🤖 Bot exploring map - continuous movement');
       } catch (error) {
-        console.log('⚠ Activity error:', error.message);
+        console.log('⚠ Movement error:', error.message);
       }
-    }, 10000 + Math.random() * 20000); // Random interval between 10-30 seconds
+    }, 3000 + Math.random() * 2000); // More frequent movement every 3-5 seconds
   }
 
   stopActivity() {

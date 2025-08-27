@@ -10,6 +10,20 @@ class MinecraftBot {
     this.reconnectTimeout = null;
     this.activityInterval = null;
     this.status = 'disconnected'; // disconnected, connecting, connected
+    this.usedUsernames = new Set(); // Track used usernames
+    this.currentUsername = null;
+  }
+
+  generateUniqueUsername() {
+    let newUsername;
+    do {
+      const randomId = Math.floor(Math.random() * 99999) + 1;
+      newUsername = `Bot_${randomId}`;
+    } while (this.usedUsernames.has(newUsername));
+    
+    this.usedUsernames.add(newUsername);
+    this.currentUsername = newUsername;
+    return newUsername;
   }
 
   connect() {
@@ -17,13 +31,16 @@ class MinecraftBot {
     
     this.status = 'connecting';
     this.connected = false;
-    console.log('⏳ Connecting to server...');
+    
+    // Generate new unique username for each connection attempt
+    const uniqueUsername = this.generateUniqueUsername();
+    console.log(`⏳ Connecting to server with username: ${uniqueUsername}...`);
 
     try {
       this.bot = mineflayer.createBot({
         host: this.config.host,
         port: this.config.port,
-        username: this.config.username,
+        username: uniqueUsername,
         // version will be auto-detected
         auth: 'offline', // For cracked servers
         skipValidation: true, // Skip username validation
@@ -178,8 +195,9 @@ class MinecraftBot {
       connected: this.connected,
       status: this.status,
       lastError: this.lastError,
-      username: this.config.username,
-      server: `${this.config.host}:${this.config.port}`
+      username: this.currentUsername || 'Not connected',
+      server: `${this.config.host}:${this.config.port}`,
+      usedUsernames: this.usedUsernames.size
     };
   }
 

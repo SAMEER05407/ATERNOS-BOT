@@ -25,9 +25,9 @@ class StatusServer {
     // HTML status page
     this.app.get('/', (req, res) => {
       const status = this.bot.getStatus();
-      
+
       let statusIcon, statusText, statusColor;
-      
+
       if (status.status === 'connected') {
         statusIcon = '✅';
         statusText = 'Connected';
@@ -36,6 +36,10 @@ class StatusServer {
         statusIcon = '⏳';
         statusText = 'Connecting...';
         statusColor = '#ffc107';
+      } else if (status.status === 'waiting_for_players_to_leave') {
+        statusIcon = '👨‍💻';
+        statusText = 'Waiting for real players to leave';
+        statusColor = '#17a2b8';
       } else {
         statusIcon = '❌';
         statusText = 'Not Connected (waiting/retrying)';
@@ -110,34 +114,41 @@ class StatusServer {
         <body>
           <div class="container">
             <h1>🤖 Minecraft AFK Bot</h1>
-            
+
             <div class="status">
               ${statusIcon} ${statusText}
             </div>
-            
+
             <div class="info">
               <strong>Server:</strong> ${status.server}<br>
-              <strong>Username:</strong> ${status.username}<br>
+              <strong>Current Username:</strong> ${status.username}<br>
+              <strong>Username Counter:</strong> ${status.usernameCounter || 1}<br>
+              ${status.bannedUsernames && status.bannedUsernames.length > 0 ? 
+                `<strong>Banned Usernames:</strong> ${status.bannedUsernames.join(', ')}<br>` : ''}
+              ${status.realPlayersOnline && status.realPlayersOnline.length > 0 ? 
+                `<strong>Real Players Online:</strong> ${status.realPlayersOnline.join(', ')}<br>` : 
+                '<strong>Real Players Online:</strong> None<br>'}
+              ${status.isHidingFromPlayers ? '<strong>🚪 Bot Status:</strong> Hiding from real players<br>' : ''}
               <strong>Last Update:</strong> ${new Date().toLocaleString()}
             </div>
-            
+
             ${status.lastError ? `
               <div class="error">
                 <strong>⚠ Last Error:</strong><br>
                 ${status.lastError}
               </div>
             ` : ''}
-            
+
             <div class="refresh">
               <button onclick="refreshStatus()">🔄 Refresh Status</button>
             </div>
-            
+
             <p><small>Page auto-refreshes every 10 seconds</small></p>
           </div>
         </body>
         </html>
       `;
-      
+
       res.send(html);
     });
 
@@ -147,7 +158,7 @@ class StatusServer {
     });
   }
 
-  start(port = 8080) {
+  start(port = 5000) {
     return new Promise((resolve) => {
       this.server = this.app.listen(port, '0.0.0.0', () => {
         console.log(`🌐 Status server running on http://0.0.0.0:${port}`);

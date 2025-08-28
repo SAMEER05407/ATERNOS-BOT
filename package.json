@@ -13,8 +13,7 @@
   "dependencies": {
     "@types/node": "^22.13.11",
     "express": "^5.1.0",
-    "mineflayer": "^4.33.0",
-    "minecraft-protocol": "^1.47.0",
+    "mineflayer": "^4.32.0",
     "protodef-validator": "^1.4.0"
   }
 }

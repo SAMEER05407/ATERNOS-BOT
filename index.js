@@ -40,28 +40,76 @@ async function start() {
   }
 }
 
-// Handle graceful shutdown
+// Handle graceful shutdown - but prevent actual shutdown for 24/7 operation
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down...');
-  bot.disconnect();
-  server.stop();
-  process.exit(0);
+  console.log('\n🔄 Received shutdown signal but bot must continue running 24/7');
+  console.log('🤖 Restarting bot connection...');
+  // Don't actually shutdown, just restart the bot
+  setTimeout(() => {
+    if (bot) {
+      bot.connect();
+    }
+  }, 2000);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n🛑 Shutting down...');
-  bot.disconnect();
-  server.stop();
-  process.exit(0);
+  console.log('\n🔄 Received termination signal but bot must continue running 24/7');
+  console.log('🤖 Restarting bot connection...');
+  // Don't actually shutdown, just restart the bot
+  setTimeout(() => {
+    if (bot) {
+      bot.connect();
+    }
+  }, 2000);
 });
 
-// Handle uncaught errors
+// Handle uncaught errors - restart instead of crashing
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
+  console.log('🚀 Auto-restarting application after uncaught exception...');
+  
+  // Restart the bot instead of crashing
+  setTimeout(() => {
+    try {
+      if (bot) {
+        bot.connect();
+      }
+    } catch (err) {
+      console.log('⚠ Error restarting after exception:', err.message);
+    }
+  }, 3000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  console.log('🚀 Auto-restarting after unhandled rejection...');
+  
+  // Restart the bot instead of crashing
+  setTimeout(() => {
+    try {
+      if (bot) {
+        bot.connect();
+      }
+    } catch (err) {
+      console.log('⚠ Error restarting after rejection:', err.message);
+    }
+  }, 3000);
 });
+
+// Add periodic health check to ensure bot stays alive
+setInterval(() => {
+  if (!bot || !bot.connected) {
+    console.log('💓 Health check: Bot not connected, attempting reconnection...');
+    try {
+      if (bot) {
+        bot.connect();
+      }
+    } catch (error) {
+      console.log('⚠ Health check reconnection error:', error.message);
+    }
+  } else {
+    console.log('💓 Health check: Bot is running normally');
+  }
+}, 300000); // Check every 5 minutes
 
 start();

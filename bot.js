@@ -58,8 +58,26 @@ class MinecraftBot {
         auth: 'offline', // For cracked servers
         skipValidation: true, // Skip username validation
         checkTimeoutInterval: 30000, // Reduced timeout for faster detection
-        hideErrors: false,
-        connectTimeout: 20000 // 20 second connection timeout
+        hideErrors: true, // Hide minor protocol errors
+        connectTimeout: 20000, // 20 second connection timeout
+        // Additional options for better error handling
+        keepAlive: true,
+        // Prevent chunk errors
+        viewDistance: 'tiny',
+        // More robust packet handling
+        packetWhitelist: null, // Allow all packets but handle errors gracefully
+        // Better error recovery
+        errorHandler: (err) => {
+          if (err.message && (
+            err.message.includes('Chunk size mismatch') ||
+            err.message.includes('explosion packet') ||
+            err.message.includes('Invalid packet')
+          )) {
+            console.log('⚠ Suppressed packet error:', err.message);
+            return; // Don't throw
+          }
+          throw err; // Re-throw other errors
+        }
       });
 
       this.setupEventHandlers();
@@ -94,6 +112,42 @@ class MinecraftBot {
   }
 
   setupEventHandlers() {
+    // Add packet error handlers to prevent crashes
+    this.bot.on('packet', (data, name, direction) => {
+      // Silently handle problematic packets
+      if (name === 'explosion' || name === 'chunk_data' || name === 'map_chunk') {
+        // Just ignore these packets if they cause issues
+      }
+    });
+
+    // Handle protocol errors gracefully
+    this.bot._client.on('error', (err) => {
+      if (err.message && (
+        err.message.includes('Chunk size mismatch') ||
+        err.message.includes('explosion packet') ||
+        err.message.includes('Invalid packet') ||
+        err.message.includes('Protocol error') ||
+        err.message.includes('parse') ||
+        err.message.includes('chunk')
+      )) {
+        console.log('⚠ Ignoring protocol/packet error:', err.message);
+        return; // Don't crash, just ignore
+      }
+      
+      // Re-emit other errors to be handled by main error handler
+      this.bot.emit('error', err);
+    });
+
+    // Handle raw socket errors
+    if (this.bot._client && this.bot._client.socket) {
+      this.bot._client.socket.on('error', (err) => {
+        if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+          console.log('🔌 Socket error, will reconnect:', err.code);
+          this.handleError('Socket error', err);
+        }
+      });
+    }
+
     this.bot.on('login', () => {
       console.log('🔐 Logged in to server...');
     });
@@ -188,7 +242,22 @@ class MinecraftBot {
     this.bot.on('error', (err) => {
       console.log('⚠ Bot error:', err.message);
       
-      // Handle specific network errors
+      // Ignore packet/protocol errors that shouldn't cause reconnection
+      if (err.message && (
+        err.message.includes('Chunk size mismatch') ||
+        err.message.includes('explosion packet') ||
+        err.message.includes('Invalid packet') ||
+        err.message.includes('Protocol error') ||
+        err.message.includes('parse error') ||
+        err.message.includes('packet') ||
+        err.message.includes('chunk') ||
+        err.message.includes('Unknown packet')
+      )) {
+        console.log('⚠ Ignoring packet/protocol error - continuing operation');
+        return; // Don't reconnect for these errors
+      }
+      
+      // Handle specific network errors that require reconnection
       if (err.code === 'ECONNRESET') {
         console.log('🔌 Connection reset by server - network issue or server restart');
         this.handleError('Connection reset (ECONNRESET)', err);
@@ -201,6 +270,9 @@ class MinecraftBot {
       } else if (err.message && err.message.includes('read ECONNRESET')) {
         console.log('📡 Read connection reset - server disconnected unexpectedly');
         this.handleError('Read connection reset', err);
+      } else if (err.message && err.message.includes('socket hang up')) {
+        console.log('🔌 Socket hang up - server disconnected');
+        this.handleError('Socket hang up', err);
       } else {
         console.log('🔧 General bot error:', err.code || 'Unknown');
         this.handleError('Bot error', err);

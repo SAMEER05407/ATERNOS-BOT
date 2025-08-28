@@ -349,10 +349,7 @@ class MinecraftBot {
   }
 
   scheduleReconnect() {
-    if (this.reconnectTimeout || this.isShuttingDown) {
-      return;
-    }
-
+    // Remove isShuttingDown check to ensure 24/7 operation
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
     }
@@ -370,26 +367,28 @@ class MinecraftBot {
 
     let delay;
     if (isDuplicateLogin) {
-      delay = 5000; // 5 seconds for duplicate login (fast username switch)
+      delay = 3000; // 3 seconds for duplicate login (faster recovery)
     } else if (isThrottled) {
-      delay = 60000; // 60 seconds for throttling
+      delay = 45000; // 45 seconds for throttling (slightly faster)
     } else if (isNetworkError) {
-      delay = 20000; // 20 seconds for network errors
+      delay = 15000; // 15 seconds for network errors (faster recovery)
     } else {
-      delay = 10000; // 10 seconds for normal errors
+      delay = 8000; // 8 seconds for normal errors (faster recovery)
     }
 
-    console.log(`❌ Disconnected, retrying in ${delay/1000} seconds...`);
+    console.log(`❌ Disconnected, retrying in ${delay/1000} seconds... (24/7 MODE - Never giving up!)`);
     console.log(`🔍 Error type: ${isNetworkError ? 'Network/Server' : isThrottled ? 'Throttled' : isDuplicateLogin ? 'Duplicate Login' : 'Normal'}`);
     
     this.reconnectTimeout = setTimeout(async () => {
-      if (!this.isShuttingDown) {
-        // For network errors, continuously check server status
-        if (isNetworkError) {
-          await this.waitForServerOnline();
-        }
-        this.connect();
+      // Always reconnect - no shutdown checks for 24/7 operation
+      console.log('🚀 24/7 Auto-reconnect triggered!');
+      
+      // For network errors, continuously check server status
+      if (isNetworkError) {
+        await this.waitForServerOnline();
       }
+      
+      this.connect();
     }, delay);
   }
 
@@ -983,15 +982,16 @@ class MinecraftBot {
   }
 
   disconnect() {
-    this.isShuttingDown = true;
+    // Don't set isShuttingDown to true for 24/7 operation
+    // this.isShuttingDown = true; // Commented out for 24/7 mode
+    
+    console.log('🔄 Temporary disconnect - will auto-reconnect for 24/7 operation');
+    
     this.stopActivity();
     this.stopPlayerMonitoring();
     this.stopFastPlayerDetection();
     this.stopAdvancedMonitoring();
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
+    
     if (this.bot && typeof this.bot.quit === 'function') {
       try {
         this.bot.quit();
@@ -1001,7 +1001,16 @@ class MinecraftBot {
       this.bot = null;
     }
     this.connected = false;
-    this.status = 'disconnected';
+    this.status = 'temporarily_disconnected';
+    
+    // Auto-reconnect after temporary disconnect for 24/7 operation
+    if (!this.reconnectTimeout) {
+      console.log('🚀 Scheduling auto-reconnect for 24/7 operation...');
+      this.reconnectTimeout = setTimeout(() => {
+        console.log('🔄 Auto-reconnecting after temporary disconnect...');
+        this.connect();
+      }, 5000); // Reconnect after 5 seconds
+    }
   }
 }
 

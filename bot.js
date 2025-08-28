@@ -128,6 +128,44 @@ class MinecraftBot {
     this.bot.on('death', () => {
       console.log('💀 Bot died, respawning...');
     });
+
+    // Immediate player join detection
+    this.bot.on('playerJoined', (player) => {
+      console.log(`👤 Player joined: ${player.username}`);
+      
+      // Check if it's a real player (not our bot)
+      const isBotPattern = 
+        player.username.startsWith('DARK_WORLD') || 
+        player.username.startsWith('AFK') ||
+        player.username.startsWith('BOT') ||
+        player.username.includes('_BOT') ||
+        player.username.includes('BOT_') ||
+        /^[A-Z_]+_\d+$/.test(player.username) ||
+        /^[A-Z]+\d+$/.test(player.username) ||
+        player.username.toLowerCase().includes('afk') ||
+        player.username.toLowerCase().includes('bot');
+
+      if (!isBotPattern && player.username !== this.currentUsername) {
+        console.log('🚨🚨🚨 REAL PLAYER JOINED EVENT! 🚨🚨🚨');
+        console.log(`Real player: ${player.username}`);
+        console.log('⚡ INSTANT EXIT TRIGGERED BY EVENT');
+        this.forceExitForRealPlayers([player.username]);
+      }
+    });
+
+    // Player leave detection
+    this.bot.on('playerLeft', (player) => {
+      console.log(`👋 Player left: ${player.username}`);
+      
+      if (this.realPlayersOnline.has(player.username)) {
+        this.realPlayersOnline.delete(player.username);
+        console.log(`📊 Real players remaining: ${this.realPlayersOnline.size}`);
+        
+        if (this.realPlayersOnline.size === 0 && this.isHidingFromPlayers) {
+          console.log('✅ All real players left - preparing to return');
+        }
+      }
+    });
   }
 
   handleDisconnect(reason) {
@@ -337,32 +375,57 @@ class MinecraftBot {
   startFastPlayerDetection() {
     if (this.fastPlayerCheckInterval) return;
 
-    // Fast detection every 1 second for immediate exit
+    console.log('🔍 Starting ultra-fast player detection (500ms intervals)');
+
+    // Ultra-fast detection every 500ms for immediate exit
     this.fastPlayerCheckInterval = setInterval(() => {
       if (!this.connected || !this.bot || this.isHidingFromPlayers) return;
 
       try {
-        // Quick check for real players
-        const realPlayers = Object.keys(this.bot.players).filter(playerName => {
+        const playerList = Object.keys(this.bot.players);
+        console.log(`🔎 Scanning ${playerList.length} players...`);
+
+        // More aggressive real player detection
+        const realPlayers = playerList.filter(playerName => {
           const player = this.bot.players[playerName];
-          const isBotUsername = playerName.startsWith('DARK_WORLD') || 
-                              playerName.startsWith('AFK') ||
-                              playerName.startsWith('BOT') ||
-                              playerName.includes('_BOT') ||
-                              /^[A-Z_]+_\d+$/.test(playerName);
           
-          return !isBotUsername && player && player.entity;
+          // Skip our own bot
+          if (playerName === this.currentUsername) return false;
+          
+          // More comprehensive bot username patterns
+          const isBotPattern = 
+            playerName.startsWith('DARK_WORLD') || 
+            playerName.startsWith('AFK') ||
+            playerName.startsWith('BOT') ||
+            playerName.includes('_BOT') ||
+            playerName.includes('BOT_') ||
+            /^[A-Z_]+_\d+$/.test(playerName) || // WORD_NUMBER
+            /^[A-Z]+\d+$/.test(playerName) ||   // WORDNUMBER
+            playerName.toLowerCase().includes('afk') ||
+            playerName.toLowerCase().includes('bot');
+          
+          // Player must have valid entity and not match bot patterns
+          const isRealPlayer = !isBotPattern && player && player.entity;
+          
+          if (isRealPlayer) {
+            console.log(`🚨 REAL PLAYER DETECTED: ${playerName}`);
+            console.log(`   - UUID: ${player.uuid}`);
+            console.log(`   - Has entity: ${!!player.entity}`);
+          }
+          
+          return isRealPlayer;
         });
 
         if (realPlayers.length > 0) {
-          console.log('⚡ FAST DETECTION: Real player detected immediately!');
-          console.log('🚪 Exiting within 1 second...');
-          this.exitForRealPlayers();
+          console.log('⚡⚡⚡ IMMEDIATE EXIT TRIGGERED! ⚡⚡⚡');
+          console.log(`Real players: ${realPlayers.join(', ')}`);
+          console.log('🚪 Bot disconnecting NOW...');
+          this.forceExitForRealPlayers(realPlayers);
         }
       } catch (error) {
         console.log('⚠ Fast detection error:', error.message);
       }
-    }, 1000); // Check every 1 second
+    }, 500); // Check every 500ms (twice per second)
   }
 
   stopFastPlayerDetection() {
@@ -370,6 +433,46 @@ class MinecraftBot {
       clearInterval(this.fastPlayerCheckInterval);
       this.fastPlayerCheckInterval = null;
     }
+  }
+
+  forceExitForRealPlayers(realPlayers) {
+    if (this.isHidingFromPlayers) return; // Already hiding
+
+    console.log('🚨 FORCE EXIT INITIATED 🚨');
+    
+    this.isHidingFromPlayers = true;
+    this.realPlayersOnline = new Set(realPlayers);
+    
+    // Stop all activities immediately
+    this.stopActivity();
+    this.stopFastPlayerDetection();
+    
+    console.log('🔒 Bot entering EMERGENCY stealth mode');
+    console.log(`📝 Detected real players: ${realPlayers.join(', ')}`);
+
+    // Immediate disconnect with no delay
+    if (this.bot && typeof this.bot.quit === 'function') {
+      try {
+        console.log('💨 Quitting bot NOW...');
+        this.bot.quit('EMERGENCY EXIT - Real player detected');
+      } catch (error) {
+        console.log('⚠ Error in emergency quit:', error.message);
+        // Force disconnect if quit fails
+        if (this.bot.end) this.bot.end();
+      }
+    }
+
+    this.connected = false;
+    this.status = 'emergency_exit_for_real_players';
+
+    // Cancel any scheduled reconnects
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    console.log('✅ Bot successfully exited for real players');
+    this.startAdvancedMonitoring();
   }
 
   exitForRealPlayers() {
@@ -408,14 +511,14 @@ class MinecraftBot {
     }
 
     let checkAttempts = 0;
-    const maxChecks = 20; // Maximum 20 checks (10 minutes total)
+    const maxChecks = 300; // Maximum 300 checks (10 minutes total with 2-second intervals)
 
     this.advancedMonitoringInterval = setInterval(() => {
       checkAttempts++;
-      console.log(`🔍 Advanced monitoring check ${checkAttempts}/${maxChecks} - Waiting ${checkAttempts * 30} seconds`);
+      console.log(`🔍 Advanced monitoring check ${checkAttempts}/${maxChecks} - Waiting ${checkAttempts * 2} seconds`);
 
       // Wait much longer before assuming players left - 5 minutes minimum
-      if (checkAttempts >= 10) { // 10 * 30 seconds = 5 minutes
+      if (checkAttempts >= 150) { // 150 * 2 seconds = 5 minutes
         console.log('⏰ 5 minutes passed - attempting careful return');
         this.realPlayersOnline.clear();
         this.returnAfterPlayersLeft();
@@ -428,7 +531,7 @@ class MinecraftBot {
         this.realPlayersOnline.clear();
         this.returnAfterPlayersLeft();
       }
-    }, 30000); // Check every 30 seconds
+    }, 2000); // Check every 2 seconds
   }
 
   stopAdvancedMonitoring() {

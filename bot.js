@@ -66,8 +66,13 @@ class MinecraftBot {
       // Exit immediately after connecting (within 1-2 seconds)
       this.autoExitTimeout = setTimeout(() => {
         console.log('🚪 Auto-exiting after brief connection...');
-        this.disconnect();
-        this.scheduleReconnect();
+        if (this.bot && typeof this.bot.quit === 'function') {
+          try {
+            this.bot.quit();
+          } catch (error) {
+            console.log('⚠ Error during auto-quit:', error.message);
+          }
+        }
       }, 1500); // Exit after 1.5 seconds
     });
 
@@ -106,8 +111,17 @@ class MinecraftBot {
     });
 
     this.bot.on('end', (reason) => {
-      console.log('❌ Connection ended:', reason);
-      this.handleDisconnect('Connection ended: ' + reason);
+      if (reason === 'disconnect.quitting') {
+        console.log('✅ Successfully completed auto-exit cycle');
+        this.connected = false;
+        this.status = 'disconnected';
+        this.lastError = null;
+        this.clearAutoExit();
+        this.scheduleReconnect();
+      } else {
+        console.log('❌ Connection ended:', reason);
+        this.handleDisconnect('Connection ended: ' + reason);
+      }
     });
 
     this.bot.on('error', (err) => {
@@ -146,18 +160,20 @@ class MinecraftBot {
   }
 
   scheduleReconnect() {
-    if (this.reconnectTimeout || this.isShuttingDown) {
+    if (this.isShuttingDown) {
       return;
     }
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
 
     const delay = 40000; // 40 seconds
 
     console.log(`🔄 Reconnecting in ${delay/1000} seconds...`);
     this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null; // Clear the timeout reference
       if (!this.isShuttingDown) {
         this.connect();
       }
@@ -212,6 +228,7 @@ class MinecraftBot {
     
     this.connected = false;
     this.status = 'disconnected';
+    console.log('🛑 Bot disconnected');
   }
 }
 

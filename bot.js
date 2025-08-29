@@ -24,12 +24,12 @@ class MinecraftBot {
   async connect() {
     if (this.status === 'connecting' || this.isShuttingDown) return;
 
-    // Check if server is online first - if not, wait indefinitely
+    // Check if server is online first
     const isServerOnline = await this.checkServerStatus();
     if (!isServerOnline) {
-      console.log('📴 Server appears to be offline, starting infinite monitoring...');
-      await this.waitForServerOnline(); // Wait indefinitely until server is back
-      console.log('✅ Server is now online after monitoring, proceeding with connection...');
+      console.log('📴 Server appears to be offline, will retry later...');
+      this.handleError('Server offline', new Error('Server is not responding'));
+      return;
     }
 
     // Disconnect any existing bot first
@@ -376,9 +376,8 @@ class MinecraftBot {
       delay = 8000; // 8 seconds for normal errors (faster recovery)
     }
 
-    console.log(`❌ Disconnected, retrying in ${delay/1000} seconds... (24/7 MODE - INFINITE RETRIES!)`);
+    console.log(`❌ Disconnected, retrying in ${delay/1000} seconds... (24/7 MODE - Never giving up!)`);
     console.log(`🔍 Error type: ${isNetworkError ? 'Network/Server' : isThrottled ? 'Throttled' : isDuplicateLogin ? 'Duplicate Login' : 'Normal'}`);
-    console.log('💪 BOT WILL KEEP TRYING FOREVER UNTIL CONNECTED TO WORLD!');
     
     this.reconnectTimeout = setTimeout(async () => {
       // Always reconnect - no shutdown checks for 24/7 operation
@@ -394,13 +393,13 @@ class MinecraftBot {
   }
 
   async waitForServerOnline() {
-    console.log('🔍 INFINITE SERVER MONITORING: Will never give up checking server...');
+    console.log('🔍 Continuously monitoring server status...');
     let attempts = 0;
+    const maxAttempts = 60; // Maximum 60 attempts (30 minutes)
     
-    // Remove maxAttempts limit - keep trying forever until server is online
-    while (!this.isShuttingDown) {
+    while (!this.isShuttingDown && attempts < maxAttempts) {
       attempts++;
-      console.log(`🔍 Server check attempt #${attempts} (INFINITE RETRIES)...`);
+      console.log(`🔍 Server check ${attempts}/${maxAttempts}...`);
       
       const isOnline = await this.checkServerStatus();
       if (isOnline) {
@@ -408,15 +407,15 @@ class MinecraftBot {
         break;
       }
       
-      // Progressive delay but cap at reasonable maximum
-      const delay = Math.min(30000 + (attempts * 1000), 120000); // 30s to 2min max
-      console.log(`📴 Server still offline, checking again in ${Math.round(delay/1000)} seconds... (Attempt ${attempts})`);
-      console.log('💪 BOT NEVER GIVES UP - Will keep trying until server is back!');
-      
+      // Progressive delay - start with 15 seconds, increase to 30 seconds
+      const delay = attempts < 10 ? 15000 : 30000;
+      console.log(`📴 Server still offline, checking again in ${delay/1000} seconds...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
     
-    console.log(`✅ Server monitoring complete after ${attempts} attempts`);
+    if (attempts >= maxAttempts) {
+      console.log('⏰ Maximum server monitoring attempts reached');
+    }
   }
 
   startActivity() {

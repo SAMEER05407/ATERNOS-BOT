@@ -6,7 +6,7 @@ const StatusServer = require('./server');
 const config = {
   host: process.env.MC_HOST || 'SAMEER05404.aternos.me',
   port: parseInt(process.env.MC_PORT) || 25565,
-  username: process.env.MC_USERNAME || 'DARK_WORLD_1'.replace(/[^a-zA-Z0-9_]/g, '_')
+  username: process.env.MC_USERNAME || 'VISITOR_BOT'.replace(/[^a-zA-Z0-9_]/g, '_')
 };
 
 console.log('🚀 Starting Minecraft AFK Bot...');

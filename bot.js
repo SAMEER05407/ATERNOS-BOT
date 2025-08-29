@@ -1,4 +1,3 @@
-
 const mineflayer = require('mineflayer');
 const net = require('net');
 
@@ -11,15 +10,16 @@ class MinecraftBot {
     this.reconnectTimeout = null;
     this.activityInterval = null;
     this.status = 'disconnected'; // disconnected, connecting, connected
-    this.baseUsername = 'DARK_WORLD';
-    this.usernameCounter = 1;
-    this.currentUsername = `${this.baseUsername}_${this.usernameCounter}`;
+    // Changed username to DARK_BOT_2 as requested
+    this.baseUsername = 'DARK_BOT_2';
+    this.usernameCounter = 1; // This counter is no longer strictly necessary for the fixed username
+    this.currentUsername = this.baseUsername; // Directly use the fixed username
     this.isShuttingDown = false;
     this.bannedUsernames = new Set(); // Track banned usernames
     this.realPlayersOnline = new Set(); // Track real players (non-bot players)
     this.playerCheckInterval = null;
     this.isHidingFromPlayers = false; // Flag to track if bot is hiding from real players
-    
+
     // Connection management improvements
     this.connectionAttempts = 0;
     this.maxConnectionAttempts = 10;
@@ -119,19 +119,19 @@ class MinecraftBot {
     return new Promise((resolve) => {
       const net = require('net');
       const socket = new net.Socket();
-      
+
       const timeout = setTimeout(() => {
         socket.destroy();
         resolve(false);
       }, 5000); // 5 second timeout
-      
+
       socket.connect(this.config.port, this.config.host, () => {
         clearTimeout(timeout);
         socket.destroy();
         console.log('✅ Server is online and reachable');
         resolve(true);
       });
-      
+
       socket.on('error', () => {
         clearTimeout(timeout);
         console.log('❌ Server is offline or unreachable');
@@ -162,7 +162,7 @@ class MinecraftBot {
         console.log('⚠ Ignoring protocol/packet error:', err.message);
         return; // Don't crash, just ignore
       }
-      
+
       // Re-emit other errors to be handled by main error handler
       this.bot.emit('error', err);
     });
@@ -186,11 +186,11 @@ class MinecraftBot {
       this.connected = true;
       this.status = 'connected';
       this.lastError = null;
-      
+
       // Reset connection tracking on successful connection
       this.connectionAttempts = 0;
       this.throttleCount = 0;
-      
+
       this.startPlayerMonitoring();
       this.startFastPlayerDetection(); // Fast detection for immediate exit
       this.startActivity();
@@ -275,7 +275,7 @@ class MinecraftBot {
 
     this.bot.on('error', (err) => {
       console.log('⚠ Bot error:', err.message);
-      
+
       // Ignore packet/protocol errors that shouldn't cause reconnection
       if (err.message && (
         err.message.includes('Chunk size mismatch') ||
@@ -290,7 +290,7 @@ class MinecraftBot {
         console.log('⚠ Ignoring packet/protocol error - continuing operation');
         return; // Don't reconnect for these errors
       }
-      
+
       // Handle specific network errors that require reconnection
       if (err.code === 'ECONNRESET') {
         console.log('🔌 Connection reset by server - network issue or server restart');
@@ -322,10 +322,11 @@ class MinecraftBot {
       console.log(`👤 Player joined: ${player.username}`);
 
       // Allow DARK bots to join without triggering exit
-      const isDarkBot = player.username.startsWith('DARK');
+      const isDarkBot = player.username.startsWith('DARK_BOT') || player.username.startsWith('DARK_WORLD');
 
       // Check if it's a real player (not our bot or other DARK bots)
       const isBotPattern = 
+        player.username.startsWith('DARK_BOT') ||
         player.username.startsWith('DARK_WORLD') || 
         player.username.startsWith('AFK') ||
         player.username.startsWith('BOT') ||
@@ -406,7 +407,7 @@ class MinecraftBot {
     const isDuplicateLogin = this.lastError && this.lastError.includes('Duplicate login');
 
     let delay;
-    
+
     if (isDuplicateLogin) {
       delay = 5000; // 5 seconds for duplicate login
       this.connectionAttempts = 0; // Reset on duplicate login
@@ -434,16 +435,16 @@ class MinecraftBot {
 
     console.log(`❌ Disconnected, retrying in ${Math.round(delay/1000)} seconds... (24/7 MODE - Never giving up!)`);
     console.log(`🔍 Error type: ${isNetworkError ? 'Network/Server' : isThrottled ? 'Throttled' : isDuplicateLogin ? 'Duplicate Login' : 'Normal'} | Attempt: ${this.connectionAttempts} | Throttle: ${this.throttleCount}`);
-    
+
     this.reconnectTimeout = setTimeout(async () => {
       // Always reconnect - no shutdown checks for 24/7 operation
       console.log('🚀 24/7 Auto-reconnect triggered!');
-      
+
       // For network errors, continuously check server status
       if (isNetworkError) {
         await this.waitForServerOnline();
       }
-      
+
       this.connect();
     }, delay);
   }
@@ -452,23 +453,23 @@ class MinecraftBot {
     console.log('🔍 Continuously monitoring server status...');
     let attempts = 0;
     const maxAttempts = 40; // Maximum 40 attempts (about 20 minutes)
-    
+
     while (!this.isShuttingDown && attempts < maxAttempts) {
       attempts++;
       console.log(`🔍 Server check ${attempts}/${maxAttempts}...`);
-      
+
       const isOnline = await this.checkServerStatus();
       if (isOnline) {
         console.log('🎉 Server is back online! Connecting immediately...');
         break;
       }
-      
+
       // Progressive delay - start with 20 seconds, increase to 45 seconds
       const delay = attempts < 10 ? 20000 : attempts < 20 ? 30000 : 45000;
       console.log(`📴 Server still offline, checking again in ${delay/1000} seconds...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
-    
+
     if (attempts >= maxAttempts) {
       console.log('⏰ Maximum server monitoring attempts reached, will try connection anyway');
     }
@@ -539,7 +540,7 @@ class MinecraftBot {
               { yaw: -Math.PI / 2, pitch: 0 },
               { yaw: Math.random() * Math.PI * 2, pitch: (Math.random() - 0.5) * 0.8 }
             ];
-            
+
             const direction = directions[Math.floor(Math.random() * directions.length)];
             this.bot.look(direction.yaw, direction.pitch);
             console.log('👀 Bot looking around');
@@ -601,9 +602,9 @@ class MinecraftBot {
       const activities = [
         'mining', 'eating', 'hunting', 'crafting', 'exploring_roads', 'building'
       ];
-      
+
       const activity = activities[Math.floor(Math.random() * activities.length)];
-      
+
       switch (activity) {
         case 'eating':
           this.eatFood();
@@ -654,14 +655,14 @@ class MinecraftBot {
 
       if (foodItems.length > 0 && this.bot.food < 18) {
         const food = foodItems[Math.floor(Math.random() * foodItems.length)];
-        
+
         console.log(`🍎 Bot is hungry (${this.bot.food}/20) - eating ${food.name}...`);
-        
+
         this.bot.equip(food, 'hand')
           .then(() => {
             // Simulate realistic eating - hold right click
             this.bot.activateItem();
-            
+
             setTimeout(() => {
               if (this.bot && this.connected) {
                 this.bot.deactivateItem();
@@ -670,7 +671,7 @@ class MinecraftBot {
             }, 1500 + Math.random() * 1000); // Eat for 1.5-2.5 seconds
           })
           .catch(err => console.log('⚠ Eating failed:', err.message));
-          
+
       } else if (foodItems.length === 0) {
         console.log('🔍 Bot looking for food sources...');
         this.searchForFood();
@@ -724,7 +725,7 @@ class MinecraftBot {
               const path = this.bot.pathfinder?.getPathTo(target.position);
               if (path) {
                 this.bot.pathfinder.setGoal(new this.bot.pathfinder.goals.GoalNear(target.position.x, target.position.y, target.position.z, 2));
-                
+
                 setTimeout(() => {
                   if (this.bot && this.connected && target.isValid) {
                     console.log(`💥 Bot attacking ${target.name}!`);
@@ -737,7 +738,7 @@ class MinecraftBot {
         } else {
           console.log('⚠ Bot has no weapon for hunting, using hands...');
           this.bot.lookAt(target.position);
-          
+
           setTimeout(() => {
             if (this.bot && this.connected && target.isValid) {
               console.log(`👊 Bot attacking ${target.name} with bare hands!`);
@@ -763,7 +764,7 @@ class MinecraftBot {
 
     try {
       console.log('🛠️ Starting comprehensive survival crafting process...');
-      
+
       // Step 1: Check if we have a crafting table
       const craftingTable = this.bot.findBlock({
         matching: this.bot.registry.blocksByName.crafting_table?.id,
@@ -786,38 +787,38 @@ class MinecraftBot {
   // Simplified survival crafting that actually works
   async simplifiedSurvivalCrafting() {
     console.log('🌲 SIMPLIFIED SURVIVAL: Following correct Minecraft sequence...');
-    
+
     try {
       // Step 1: Ensure we have logs
       let logs = this.bot.inventory.items().filter(item => 
         item && item.name && item.name.includes('log')
       );
-      
+
       if (logs.length === 0 || logs.reduce((sum, log) => sum + log.count, 0) < 4) {
         console.log('🪓 Need more logs for crafting table. Collecting logs first...');
         await this.collectLogsForCrafting();
-        
+
         // Recheck logs
         logs = this.bot.inventory.items().filter(item => 
           item && item.name && item.name.includes('log')
         );
       }
-      
+
       if (logs.length > 0 && logs.reduce((sum, log) => sum + log.count, 0) >= 1) {
         console.log('✅ Have logs! Converting to planks using inventory crafting...');
         await this.inventoryCraftPlanks();
-        
+
         // Wait and check planks
         setTimeout(async () => {
           const planks = this.bot.inventory.items().filter(item => 
             item && item.name && item.name.includes('planks')
           );
           const totalPlanks = planks.reduce((sum, plank) => sum + plank.count, 0);
-          
+
           if (totalPlanks >= 4) {
             console.log(`✅ Have ${totalPlanks} planks! Making crafting table...`);
             await this.inventoryCraftCraftingTable();
-            
+
             // Wait and then make sword
             setTimeout(() => {
               this.makeSwordSequence();
@@ -828,7 +829,7 @@ class MinecraftBot {
           }
         }, 2000);
       }
-      
+
     } catch (error) {
       console.log('⚠ Simplified crafting error:', error.message);
     }
@@ -837,33 +838,33 @@ class MinecraftBot {
   // Focused log collection for crafting
   async collectLogsForCrafting() {
     console.log('🪓 FOCUSED LOG COLLECTION: Getting wood for crafting table...');
-    
+
     try {
       // Find nearby trees - prioritize closer ones
       const trees = this.findNearbyTrees();
-      
+
       if (trees.length > 0) {
         console.log(`🌳 Found ${trees.length} trees! Cutting systematically...`);
-        
+
         // Cut trees one by one with better error handling
         for (let i = 0; i < Math.min(trees.length, 2); i++) {
           const treePos = trees[i];
           const treeBlock = this.bot.blockAt(treePos);
-          
+
           if (treeBlock && treeBlock.name.includes('log')) {
             console.log(`🪓 Cutting tree ${i + 1}: ${treeBlock.name}`);
-            
+
             try {
               // Move closer to tree first
               const distance = this.bot.entity.position.distanceTo(treePos);
               if (distance > 4) {
                 await this.bot.pathfinder.goto(treePos.offset(0, 0, 1));
               }
-              
+
               await this.bot.lookAt(treePos);
               await this.bot.dig(treeBlock, true); // Force digging
               console.log(`✅ Successfully cut ${treeBlock.name}!`);
-              
+
               // Short break between cuts
               await new Promise(resolve => setTimeout(resolve, 1000));
             } catch (error) {
@@ -878,18 +879,18 @@ class MinecraftBot {
             }
           }
         }
-        
+
         // Check what we collected
         const logs = this.bot.inventory.items().filter(item => 
           item && item.name && item.name.includes('log')
         );
         const totalLogs = logs.reduce((sum, log) => sum + log.count, 0);
         console.log(`📊 Total logs collected: ${totalLogs}`);
-        
+
       } else {
         console.log('❌ No trees found! Bot will search wider area...');
       }
-      
+
     } catch (error) {
       console.log('⚠ Log collection error:', error.message);
     }
@@ -898,23 +899,23 @@ class MinecraftBot {
   // Craft planks using 2x2 inventory grid
   async inventoryCraftPlanks() {
     console.log('🪚 Converting logs to planks in inventory...');
-    
+
     try {
       const logs = this.bot.inventory.items().filter(item => 
         item && item.name && item.name.includes('log')
       );
-      
+
       for (const log of logs) {
         console.log(`🔨 Converting ${log.name} to planks...`);
-        
+
         // Use recipesFor to find plank recipes
         const recipes = this.bot.recipesFor(log.type, null, 1, null);
         console.log(`🔍 Found ${recipes.length} recipes for ${log.name}`);
-        
+
         if (recipes.length > 0) {
           const recipe = recipes[0]; // First recipe is usually planks
           const maxCraft = Math.min(log.count, 8); // Convert up to 8 logs
-          
+
           try {
             await this.bot.craft(recipe, maxCraft);
             console.log(`✅ Crafted planks from ${maxCraft} ${log.name}!`);
@@ -922,11 +923,11 @@ class MinecraftBot {
             console.log(`⚠ Crafting failed for ${log.name}:`, craftError.message);
           }
         }
-        
+
         // Small delay between crafting operations
         await new Promise(resolve => setTimeout(resolve, 500));
       }
-      
+
     } catch (error) {
       console.log('⚠ Plank crafting error:', error.message);
     }
@@ -935,31 +936,31 @@ class MinecraftBot {
   // Craft crafting table using 2x2 inventory grid
   async inventoryCraftCraftingTable() {
     console.log('🔨 Making crafting table in inventory...');
-    
+
     try {
       const planks = this.bot.inventory.items().filter(item => 
         item && item.name && item.name.includes('planks')
       );
-      
+
       if (planks.length > 0) {
         const totalPlanks = planks.reduce((sum, plank) => sum + plank.count, 0);
-        
+
         if (totalPlanks >= 4) {
           console.log(`✅ Have ${totalPlanks} planks! Crafting table...`);
-          
+
           // Find crafting table recipes using any plank type
           const plankType = planks[0].type;
           const recipes = this.bot.recipesFor(plankType, null, 1, null);
-          
+
           // Look for crafting table recipe
           const craftingTableRecipe = recipes.find(recipe => 
             recipe.result && recipe.result.name === 'crafting_table'
           );
-          
+
           if (craftingTableRecipe) {
             await this.bot.craft(craftingTableRecipe, 1);
             console.log('✅ Successfully crafted crafting table!');
-            
+
             // Place it immediately
             setTimeout(() => {
               this.placeCraftingTableAndMakeTools();
@@ -971,7 +972,7 @@ class MinecraftBot {
           console.log(`❌ Not enough planks: ${totalPlanks}/4`);
         }
       }
-      
+
     } catch (error) {
       console.log('⚠ Crafting table creation error:', error.message);
     }
@@ -980,32 +981,32 @@ class MinecraftBot {
   // Place crafting table and make sword
   async placeCraftingTableAndMakeTools() {
     console.log('📦 Placing crafting table and making tools...');
-    
+
     try {
       const craftingTableItem = this.bot.inventory.items().find(item => 
         item && item.name === 'crafting_table'
       );
-      
+
       if (craftingTableItem) {
         await this.bot.equip(craftingTableItem, 'hand');
-        
+
         // Find suitable ground position
         const botPos = this.bot.entity.position;
         const groundPos = botPos.offset(1, -1, 0);
         const groundBlock = this.bot.blockAt(groundPos);
-        
+
         if (groundBlock && groundBlock.name !== 'air') {
           const placePos = groundPos.offset(0, 1, 0);
           await this.bot.placeBlock(groundBlock, placePos);
           console.log('✅ Crafting table placed!');
-          
+
           // Now make sword with the placed table
           setTimeout(() => {
             this.makeSwordWithCraftingTable();
           }, 2000);
         }
       }
-      
+
     } catch (error) {
       console.log('⚠ Placement error:', error.message);
     }
@@ -1014,43 +1015,43 @@ class MinecraftBot {
   // Make sword using placed crafting table
   async makeSwordWithCraftingTable() {
     console.log('⚔️ Making wooden sword at crafting table...');
-    
+
     try {
       const craftingTable = this.bot.findBlock({
         matching: this.bot.registry.blocksByName.crafting_table?.id,
         maxDistance: 5
       });
-      
+
       if (craftingTable) {
         console.log('🔨 Found crafting table! Making sword...');
-        
+
         // First make sticks
         const planks = this.bot.inventory.items().find(item => 
           item && item.name && item.name.includes('planks')
         );
-        
+
         if (planks && planks.count >= 4) {
           // Make sticks first
           const stickRecipes = this.bot.recipesFor(planks.type, craftingTable, 1, null);
           const stickRecipe = stickRecipes.find(recipe => 
             recipe.result && recipe.result.name === 'stick'
           );
-          
+
           if (stickRecipe) {
             await this.bot.craft(stickRecipe, 4, craftingTable); // Make 4 sticks
             console.log('✅ Made sticks!');
-            
+
             // Now make wooden sword
             setTimeout(async () => {
               const swordRecipes = this.bot.recipesFor(planks.type, craftingTable, 1, null);
               const swordRecipe = swordRecipes.find(recipe => 
                 recipe.result && recipe.result.name === 'wooden_sword'
               );
-              
+
               if (swordRecipe) {
                 await this.bot.craft(swordRecipe, 1, craftingTable);
                 console.log('⚔️ Successfully crafted wooden sword!');
-                
+
                 // Equip sword
                 const sword = this.bot.inventory.items().find(item => 
                   item && item.name === 'wooden_sword'
@@ -1064,7 +1065,7 @@ class MinecraftBot {
           }
         }
       }
-      
+
     } catch (error) {
       console.log('⚠ Sword making error:', error.message);
     }
@@ -1073,31 +1074,31 @@ class MinecraftBot {
   // Complete survival sequence: Tree -> Planks -> Crafting Table -> Tools -> Combat
   async startSurvivalSequence() {
     console.log('🌲 SURVIVAL MODE: Starting from scratch...');
-    
+
     try {
       // Step 1: Cut trees for wood
       await this.cutTreesForWood();
-      
+
       // Step 2: Make planks from wood
       setTimeout(() => {
         this.makeWoodPlanks();
       }, 2000);
-      
+
       // Step 3: Create crafting table
       setTimeout(() => {
         this.createCraftingTable();
       }, 4000);
-      
+
       // Step 4: Make basic tools
       setTimeout(() => {
         this.makeBasicTools();
       }, 6000);
-      
+
       // Step 5: Start combat activities
       setTimeout(() => {
         this.startCombatActivities();
       }, 8000);
-      
+
     } catch (error) {
       console.log('⚠ Survival sequence error:', error.message);
     }
@@ -1106,7 +1107,7 @@ class MinecraftBot {
   // Step 1: Cut trees systematically
   async cutTreesForWood() {
     console.log('🪓 Phase 1: Cutting trees for wood...');
-    
+
     try {
       // Look for trees (oak, birch, spruce, etc.)
       const trees = this.bot.findBlocks({
@@ -1128,20 +1129,20 @@ class MinecraftBot {
 
       if (trees.length > 0) {
         console.log(`🌳 Found ${trees.length} trees! Starting systematic cutting...`);
-        
+
         // Cut multiple trees
         for (let i = 0; i < Math.min(trees.length, 3); i++) {
           const treePos = trees[i];
           const treeBlock = this.bot.blockAt(treePos);
-          
+
           if (treeBlock) {
             console.log(`🪓 Cutting tree ${i + 1}/3: ${treeBlock.name}`);
             this.bot.lookAt(treePos);
-            
+
             try {
               await this.bot.dig(treeBlock);
               console.log(`✅ Successfully cut ${treeBlock.name}!`);
-              
+
               // Wait between cuts
               await new Promise(resolve => setTimeout(resolve, 1500));
             } catch (error) {
@@ -1149,16 +1150,16 @@ class MinecraftBot {
             }
           }
         }
-        
+
         // Check wood inventory
         const woodCount = this.countWoodInInventory();
         console.log(`📊 Total wood collected: ${woodCount} pieces`);
-        
+
       } else {
         console.log('❌ No trees found nearby! Bot will search wider area...');
         this.searchForDistantTrees();
       }
-      
+
     } catch (error) {
       console.log('⚠ Tree cutting error:', error.message);
     }
@@ -1167,7 +1168,7 @@ class MinecraftBot {
   // Step 2: Convert logs to planks
   makeWoodPlanks() {
     console.log('🪚 Phase 2: Converting wood to planks...');
-    
+
     try {
       // Find wood logs in inventory
       const woodLogs = this.bot.inventory.items().filter(item => {
@@ -1179,7 +1180,7 @@ class MinecraftBot {
 
       if (woodLogs.length > 0) {
         console.log(`🪵 Found ${woodLogs.length} types of wood logs`);
-        
+
         // Use simplified crafting approach - direct recipe lookup
         woodLogs.forEach((log, index) => {
           setTimeout(() => {
@@ -1202,9 +1203,9 @@ class MinecraftBot {
                 } else {
                   plankType = log.name.replace('_log', '_planks').replace('_wood', '_planks');
                 }
-                
+
                 console.log(`🔨 Converting ${log.name} to ${plankType}...`);
-                
+
                 // Always use the simple crafting method since mcData is unreliable
                 console.log(`⚡ Using direct recipe lookup for ${log.name}...`);
                 this.simpleCraftPlanks(log);
@@ -1215,12 +1216,12 @@ class MinecraftBot {
             }
           }, index * 1500); // Longer delay between attempts
         });
-        
+
       } else {
         console.log('❌ No wood logs found! Need to cut more trees...');
         this.cutTreesForWood();
       }
-      
+
     } catch (error) {
       console.log('⚠ Plank making error:', error.message);
     }
@@ -1229,12 +1230,12 @@ class MinecraftBot {
   // Simple crafting method for planks (fallback)
   simpleCraftPlanks(log) {
     console.log(`🔨 Trying simple craft for ${log.name}...`);
-    
+
     try {
       // Use recipesFor to find plank recipes for this log
       const recipes = this.bot.recipesFor(log.type, null, 1, null);
       console.log(`🔍 Found ${recipes.length} recipes for ${log.name}`);
-      
+
       if (recipes.length > 0) {
         // Use the first available recipe (usually planks)
         const recipe = recipes[0];
@@ -1261,10 +1262,10 @@ class MinecraftBot {
     const planks = this.bot.inventory.items().filter(item => {
       return item && item.name && item.name.includes('planks');
     });
-    
+
     const totalPlanks = planks.reduce((sum, item) => sum + item.count, 0);
     console.log(`📊 Total planks available: ${totalPlanks}`);
-    
+
     if (totalPlanks >= 4) {
       console.log('✅ Enough planks available! Creating crafting table...');
       this.createCraftingTable();
@@ -1276,7 +1277,7 @@ class MinecraftBot {
   // Step 3: Create crafting table
   createCraftingTable() {
     console.log('🔨 Phase 3: Creating crafting table...');
-    
+
     try {
       // Check if we have planks
       const planks = this.bot.inventory.items().filter(item => {
@@ -1285,13 +1286,13 @@ class MinecraftBot {
 
       if (planks.length > 0 && planks[0].count >= 4) {
         console.log('✅ Sufficient planks found! Crafting table...');
-        
+
         const craftingTableRecipe = this.bot.mcData.recipesByName['crafting_table'];
         if (craftingTableRecipe) {
           this.bot.craft(craftingTableRecipe, 1)
             .then(() => {
               console.log('✅ Successfully crafted crafting table!');
-              
+
               // Place the crafting table
               setTimeout(() => {
                 this.placeCraftingTable();
@@ -1303,12 +1304,12 @@ class MinecraftBot {
         } else {
           console.log('⚠ Crafting table recipe not found');
         }
-        
+
       } else {
         console.log('❌ Not enough planks! Need at least 4 planks for crafting table');
         console.log(`Current planks: ${planks.length > 0 ? planks[0].count : 0}`);
       }
-      
+
     } catch (error) {
       console.log('⚠ Crafting table creation error:', error.message);
     }
@@ -1317,7 +1318,7 @@ class MinecraftBot {
   // Place crafting table on ground
   async placeCraftingTable() {
     console.log('📦 Phase 3.5: Placing crafting table...');
-    
+
     try {
       // Find crafting table in inventory
       const craftingTableItem = this.bot.inventory.items().find(item => 
@@ -1326,18 +1327,18 @@ class MinecraftBot {
 
       if (craftingTableItem) {
         console.log('🔨 Placing crafting table near bot...');
-        
+
         await this.bot.equip(craftingTableItem, 'hand');
-        
+
         // Find suitable ground position
         const botPos = this.bot.entity.position;
         const placePos = botPos.offset(2, 0, 0); // 2 blocks in front
         const groundBlock = this.bot.blockAt(placePos.offset(0, -1, 0));
-        
+
         if (groundBlock && groundBlock.name !== 'air') {
           await this.bot.placeBlock(groundBlock, placePos);
           console.log('✅ Crafting table placed successfully!');
-          
+
           // Wait and then start tool creation
           setTimeout(() => {
             this.makeBasicTools();
@@ -1345,11 +1346,11 @@ class MinecraftBot {
         } else {
           console.log('⚠ No suitable ground found for placing crafting table');
         }
-        
+
       } else {
         console.log('❌ Crafting table not found in inventory');
       }
-      
+
     } catch (error) {
       console.log('⚠ Crafting table placement error:', error.message);
     }
@@ -1358,7 +1359,7 @@ class MinecraftBot {
   // Step 4: Make basic tools (sticks, sword, axe)
   makeBasicTools() {
     console.log('⚔️ Phase 4: Creating basic survival tools...');
-    
+
     try {
       // Find our crafting table
       const craftingTable = this.bot.findBlock({
@@ -1368,27 +1369,27 @@ class MinecraftBot {
 
       if (craftingTable) {
         console.log('🔨 Found crafting table! Making tools...');
-        
+
         // Sequence: Sticks -> Sword -> Axe -> Pickaxe
         this.makeSticks(craftingTable);
-        
+
         setTimeout(() => {
           this.makeWoodenSword(craftingTable);
         }, 2000);
-        
+
         setTimeout(() => {
           this.makeWoodenAxe(craftingTable);
         }, 4000);
-        
+
         setTimeout(() => {
           this.makeWoodenPickaxe(craftingTable);
         }, 6000);
-        
+
       } else {
         console.log('❌ Crafting table not found! Creating one first...');
         this.createCraftingTable();
       }
-      
+
     } catch (error) {
       console.log('⚠ Tool making error:', error.message);
     }
@@ -1397,7 +1398,7 @@ class MinecraftBot {
   // Make sticks from planks
   makeSticks(craftingTable) {
     console.log('🪵 Making sticks...');
-    
+
     try {
       const planks = this.bot.inventory.items().find(item => 
         item && item.name && item.name.includes('planks')
@@ -1425,7 +1426,7 @@ class MinecraftBot {
   // Make wooden sword
   makeWoodenSword(craftingTable) {
     console.log('⚔️ Making wooden sword...');
-    
+
     try {
       const planks = this.bot.inventory.items().find(item => 
         item && item.name && item.name.includes('planks')
@@ -1464,7 +1465,7 @@ class MinecraftBot {
   // Make wooden axe
   makeWoodenAxe(craftingTable) {
     console.log('🪓 Making wooden axe...');
-    
+
     try {
       const planks = this.bot.inventory.items().find(item => 
         item && item.name && item.name.includes('planks')
@@ -1495,7 +1496,7 @@ class MinecraftBot {
   // Make wooden pickaxe
   makeWoodenPickaxe(craftingTable) {
     console.log('⛏️ Making wooden pickaxe...');
-    
+
     try {
       const planks = this.bot.inventory.items().find(item => 
         item && item.name && item.name.includes('planks')
@@ -1526,7 +1527,7 @@ class MinecraftBot {
   // Step 5: Start combat activities
   startCombatActivities() {
     console.log('⚔️ Phase 5: Starting combat and food gathering...');
-    
+
     try {
       // Check if we have weapons
       const sword = this.bot.inventory.items().find(item => 
@@ -1535,25 +1536,25 @@ class MinecraftBot {
 
       if (sword) {
         console.log(`💪 Armed with ${sword.name}! Starting combat activities...`);
-        
+
         // Equip weapon
         this.bot.equip(sword, 'hand');
-        
+
         // Start hunting sequence
         setTimeout(() => {
           this.huntAnimalsForFood();
         }, 1000);
-        
+
         // Start zombie/monster hunting
         setTimeout(() => {
           this.huntHostileMobs();
         }, 5000);
-        
+
       } else {
         console.log('❌ No weapon available! Making sword first...');
         this.makeBasicTools();
       }
-      
+
     } catch (error) {
       console.log('⚠ Combat startup error:', error.message);
     }
@@ -1565,7 +1566,7 @@ class MinecraftBot {
 
     try {
       console.log('🍖 Hunting animals for food with proper weapon...');
-      
+
       // Look for food animals
       const foodAnimals = Object.values(this.bot.entities).filter(entity => {
         return entity && entity.name && (
@@ -1598,7 +1599,7 @@ class MinecraftBot {
                 console.log(`🏃 Moving closer to ${target.name}...`);
                 this.bot.setControlState('forward', true);
                 this.bot.setControlState('sprint', true);
-                
+
                 setTimeout(() => {
                   if (this.bot && this.connected) {
                     this.bot.clearControlStates();
@@ -1628,7 +1629,7 @@ class MinecraftBot {
 
     try {
       console.log('🧟 Hunting hostile mobs for safety and loot...');
-      
+
       // Look for hostile mobs
       const hostileMobs = Object.values(this.bot.entities).filter(entity => {
         return entity && entity.name && (
@@ -1686,12 +1687,12 @@ class MinecraftBot {
   strategicCombat(target) {
     try {
       const distance = target.position.distanceTo(this.bot.entity.position);
-      
+
       if (distance > 3) {
         // Move closer
         console.log('🏃 Closing distance for combat...');
         this.bot.setControlState('forward', true);
-        
+
         setTimeout(() => {
           if (this.bot && this.connected && target.isValid) {
             this.bot.clearControlStates();
@@ -1702,7 +1703,7 @@ class MinecraftBot {
         // Attack immediately
         this.attackTarget(target);
       }
-      
+
     } catch (error) {
       console.log('⚠ Strategic combat error:', error.message);
     }
@@ -1717,7 +1718,7 @@ class MinecraftBot {
       }
 
       console.log(`💥 Attacking ${target.name}!`);
-      
+
       // Look at target and attack
       this.bot.lookAt(target.position.plus({ x: 0, y: target.height / 2, z: 0 }))
         .then(() => {
@@ -1737,7 +1738,7 @@ class MinecraftBot {
       setTimeout(() => {
         this.checkCombatResults(target);
       }, 2000);
-      
+
     } catch (error) {
       console.log('⚠ Attack error:', error.message);
     }
@@ -1748,12 +1749,12 @@ class MinecraftBot {
     try {
       if (!target.isValid) {
         console.log('✅ Target eliminated successfully!');
-        
+
         // Look for dropped food items
         setTimeout(() => {
           this.collectNearbyItems();
         }, 1000);
-        
+
         // Check if we need to eat
         if (this.bot.food < 15) {
           setTimeout(() => {
@@ -1768,7 +1769,7 @@ class MinecraftBot {
           this.attackTarget(target);
         }, 1000);
       }
-      
+
     } catch (error) {
       console.log('⚠ Combat results check error:', error.message);
     }
@@ -1784,14 +1785,14 @@ class MinecraftBot {
 
       if (nearbyItems.length > 0) {
         console.log(`📦 Found ${nearbyItems.length} dropped items nearby!`);
-        
+
         nearbyItems.forEach((item, index) => {
           setTimeout(() => {
             if (this.bot && this.connected && item.isValid) {
               console.log('🏃 Moving to collect dropped item...');
               this.bot.lookAt(item.position);
               this.bot.setControlState('forward', true);
-              
+
               setTimeout(() => {
                 if (this.bot && this.connected) {
                   this.bot.clearControlStates();
@@ -1802,7 +1803,7 @@ class MinecraftBot {
           }, index * 1500);
         });
       }
-      
+
     } catch (error) {
       console.log('⚠ Item collection error:', error.message);
     }
@@ -1817,7 +1818,7 @@ class MinecraftBot {
           item.name.includes('wood')
         );
       });
-      
+
       return woodItems.reduce((total, item) => total + item.count, 0);
     } catch (error) {
       console.log('⚠ Wood count error:', error.message);
@@ -1827,18 +1828,18 @@ class MinecraftBot {
 
   searchForDistantTrees() {
     console.log('🔍 Searching for trees in wider area...');
-    
+
     try {
       // Move in random direction to find trees
       const directions = [0, Math.PI/2, Math.PI, 3*Math.PI/2];
       const direction = directions[Math.floor(Math.random() * directions.length)];
-      
+
       this.bot.look(direction, 0);
       this.bot.setControlState('forward', true);
       this.bot.setControlState('sprint', true);
-      
+
       console.log('🚶 Bot exploring for trees...');
-      
+
       setTimeout(() => {
         if (this.bot && this.connected) {
           this.bot.clearControlStates();
@@ -1846,7 +1847,7 @@ class MinecraftBot {
           this.cutTreesForWood();
         }
       }, 5000);
-      
+
     } catch (error) {
       console.log('⚠ Tree search error:', error.message);
     }
@@ -1855,7 +1856,7 @@ class MinecraftBot {
   // Advanced crafting with existing crafting table
   advancedCrafting(craftingTable) {
     console.log('🏭 Advanced crafting with existing crafting table...');
-    
+
     try {
       // Check what we can craft
       const inventory = this.bot.inventory.items();
@@ -1883,7 +1884,7 @@ class MinecraftBot {
         console.log('❌ Insufficient materials - starting resource gathering...');
         this.startSurvivalSequence();
       }
-      
+
     } catch (error) {
       console.log('⚠ Advanced crafting error:', error.message);
     }
@@ -1891,9 +1892,9 @@ class MinecraftBot {
 
   craftIronTools(craftingTable) {
     console.log('⚒️ Crafting iron tools...');
-    
+
     const ironTools = ['iron_sword', 'iron_axe', 'iron_pickaxe'];
-    
+
     ironTools.forEach((tool, index) => {
       setTimeout(() => {
         if (this.bot && this.connected) {
@@ -1917,9 +1918,9 @@ class MinecraftBot {
 
   craftStoneTools(craftingTable) {
     console.log('🗿 Crafting stone tools...');
-    
+
     const stoneTools = ['stone_sword', 'stone_axe', 'stone_pickaxe'];
-    
+
     stoneTools.forEach((tool, index) => {
       setTimeout(() => {
         if (this.bot && this.connected) {
@@ -1947,7 +1948,7 @@ class MinecraftBot {
 
     try {
       console.log('🛣️ Bot exploring roads and paths...');
-      
+
       // Look for path blocks or structured areas
       const pathBlocks = this.bot.findBlocks({
         matching: (block) => {
@@ -1967,19 +1968,19 @@ class MinecraftBot {
         // Follow the path
         const targetPath = pathBlocks[Math.floor(Math.random() * pathBlocks.length)];
         console.log(`🚶 Bot following path to: ${targetPath}`);
-        
+
         // Walk along the path
         this.bot.lookAt(targetPath);
         this.bot.setControlState('forward', true);
         this.bot.setControlState('sprint', true);
-        
+
         // Sometimes jump while walking on roads (realistic player behavior)
         if (Math.random() < 0.4) {
           setTimeout(() => {
             if (this.bot && this.connected) {
               this.bot.setControlState('jump', true);
               console.log('🦘 Bot jumping while exploring road');
-              
+
               setTimeout(() => {
                 if (this.bot && this.connected) {
                   this.bot.setControlState('jump', false);
@@ -1996,7 +1997,7 @@ class MinecraftBot {
             console.log('🛑 Bot stopped road exploration');
           }
         }, 3000 + Math.random() * 4000);
-        
+
       } else {
         console.log('🏗️ No roads found, bot creating its own path...');
         this.createPath();
@@ -2013,7 +2014,7 @@ class MinecraftBot {
 
     try {
       console.log('🏗️ Bot starting construction project...');
-      
+
       const buildingMaterials = this.bot.inventory.items().filter(item => {
         return item && item.name && (
           item.name.includes('wood') ||
@@ -2027,10 +2028,10 @@ class MinecraftBot {
       if (buildingMaterials.length > 0) {
         const material = buildingMaterials[Math.floor(Math.random() * buildingMaterials.length)];
         console.log(`🧱 Bot building with ${material.name}...`);
-        
+
         // Build a small structure (like a pillar or wall)
         const startPos = this.bot.entity.position.offset(2, 0, 0);
-        
+
         this.bot.equip(material, 'hand')
           .then(() => {
             // Build upward (pillar)
@@ -2039,7 +2040,7 @@ class MinecraftBot {
                 if (this.bot && this.connected) {
                   const targetPos = startPos.offset(0, y, 0);
                   const referenceBlock = this.bot.blockAt(targetPos.offset(0, -1, 0));
-                  
+
                   if (referenceBlock && referenceBlock.name !== 'air') {
                     this.bot.lookAt(targetPos);
                     this.bot.placeBlock(referenceBlock, targetPos)
@@ -2055,7 +2056,7 @@ class MinecraftBot {
             }
           })
           .catch(err => console.log('⚠ Building preparation failed:', err.message));
-          
+
       } else {
         console.log('🔍 Bot searching for building materials...');
         this.gatherBuildingMaterials();
@@ -2088,10 +2089,10 @@ class MinecraftBot {
         const foodSource = foodBlocks[0];
         console.log(`🌾 Bot found food source: ${this.bot.blockAt(foodSource).name}`);
         this.bot.lookAt(foodSource);
-        
+
         // Move towards food source
         this.bot.setControlState('forward', true);
-        
+
         setTimeout(() => {
           if (this.bot && this.connected) {
             this.bot.clearControlStates();
@@ -2126,7 +2127,7 @@ class MinecraftBot {
       if (materialBlocks.length > 0) {
         const target = materialBlocks[0];
         console.log(`⛏️ Bot gathering materials: ${this.bot.blockAt(target).name}`);
-        
+
         this.bot.lookAt(target);
         this.bot.dig(this.bot.blockAt(target))
           .then(() => console.log('✅ Bot gathered crafting materials!'))
@@ -2140,7 +2141,7 @@ class MinecraftBot {
   createPath() {
     try {
       console.log('🛤️ Bot creating its own path...');
-      
+
       const pathMaterial = this.bot.inventory.items().find(item => 
         item && item.name && (
           item.name === 'cobblestone' ||
@@ -2158,7 +2159,7 @@ class MinecraftBot {
                 if (this.bot && this.connected) {
                   const pathPos = this.bot.entity.position.offset(i, -1, 0);
                   const referenceBlock = this.bot.blockAt(pathPos.offset(0, -1, 0));
-                  
+
                   if (referenceBlock) {
                     this.bot.placeBlock(referenceBlock, pathPos)
                       .then(() => console.log(`🛤️ Bot placed path block ${i}/5`))
@@ -2178,7 +2179,7 @@ class MinecraftBot {
   gatherBuildingMaterials() {
     try {
       console.log('🪓 Bot gathering building materials...');
-      
+
       // Look for trees to chop
       const trees = this.bot.findBlocks({
         matching: (block) => {
@@ -2191,14 +2192,14 @@ class MinecraftBot {
       if (trees.length > 0) {
         const tree = trees[0];
         console.log('🌳 Bot found tree to chop for building materials');
-        
+
         this.bot.lookAt(tree);
-        
+
         // Equip axe if available
         const axe = this.bot.inventory.items().find(item => 
           item && item.name && item.name.includes('axe')
         );
-        
+
         if (axe) {
           this.bot.equip(axe, 'hand')
             .then(() => {
@@ -2237,20 +2238,20 @@ class MinecraftBot {
 
       if (blocks.length > 0) {
         const randomBlock = blocks[Math.floor(Math.random() * blocks.length)];
-        
+
         // 50% chance to dig, 50% chance to just look at block
         if (Math.random() < 0.5) {
           console.log('⛏️ Bot attempting to mine block at:', randomBlock);
-          
+
           // Look at the block first (realistic behavior)
           this.bot.lookAt(randomBlock);
-          
+
           setTimeout(() => {
             if (this.bot && this.connected) {
               this.bot.dig(this.bot.blockAt(randomBlock))
                 .then(() => {
                   console.log('✅ Bot successfully mined a block!');
-                  
+
                   // After mining, try to place a block if we have materials
                   setTimeout(() => {
                     this.tryPlaceBlock(randomBlock);
@@ -2296,7 +2297,7 @@ class MinecraftBot {
       if (placeableItems.length > 0) {
         const item = placeableItems[0];
         const referenceBlock = this.bot.blockAt(position.offset(0, -1, 0));
-        
+
         if (referenceBlock) {
           this.bot.equip(item, 'hand')
             .then(() => {
@@ -2321,7 +2322,7 @@ class MinecraftBot {
     try {
       // Get bot's current position
       const botPos = this.bot.entity.position;
-      
+
       // Try to place a block nearby
       const nearbyPositions = [
         botPos.offset(1, 0, 0),
@@ -2334,10 +2335,10 @@ class MinecraftBot {
 
       const targetPos = nearbyPositions[Math.floor(Math.random() * nearbyPositions.length)];
       const targetBlock = this.bot.blockAt(targetPos);
-      
+
       if (targetBlock && targetBlock.name === 'air') {
         const groundBlock = this.bot.blockAt(targetPos.offset(0, -1, 0));
-        
+
         if (groundBlock && groundBlock.name !== 'air') {
           // Look for materials in inventory
           const buildingItems = this.bot.inventory.items().filter(item => {
@@ -2399,7 +2400,7 @@ class MinecraftBot {
           const player = this.bot.players[playerName];
 
           // Allow DARK bots to coexist - don't count them as real players
-          const isDarkBot = playerName.startsWith('DARK');
+          const isDarkBot = playerName.startsWith('DARK_BOT') || playerName.startsWith('DARK_WORLD');
 
           // More advanced filtering - exclude bot-like usernames (but allow DARK bots)
           const isBotUsername = (!isDarkBot && playerName.startsWith('DARK_WORLD')) || 
@@ -2407,9 +2408,9 @@ class MinecraftBot {
                               playerName.startsWith('BOT') ||
                               playerName.includes('_BOT') ||
                               /^[A-Z_]+_\d+$/.test(playerName) || // Pattern like WORD_NUMBER
-                              isDarkBot; // DARK bots are friendly bots
+                              isDarkBot; // DARK bots are considered bots (friendly bots)
 
-          // Only count as real player if they have a valid entity and are actually spawned
+          // Player must have valid entity and not match bot patterns
           if (!isBotUsername && player && player.entity) {
             currentPlayers.add(playerName);
             console.log(`🔍 Detected real player: ${playerName} (UUID: ${player.uuid})`);
@@ -2484,11 +2485,12 @@ class MinecraftBot {
           if (playerName === this.currentUsername) return false;
 
           // Allow multiple DARK bots to coexist - don't exit for DARK bots
-          const isDarkBot = playerName.startsWith('DARK');
-          
+          const isDarkBot = playerName.startsWith('DARK_BOT') || playerName.startsWith('DARK_WORLD');
+
           // More comprehensive bot username patterns (but exclude DARK bots)
           const isBotPattern = 
-            (!isDarkBot && playerName.startsWith('DARK_WORLD')) || 
+            playerName.startsWith('DARK_BOT') ||
+            playerName.startsWith('DARK_WORLD') || 
             playerName.startsWith('AFK') ||
             playerName.startsWith('BOT') ||
             playerName.includes('_BOT') ||
@@ -2695,7 +2697,7 @@ class MinecraftBot {
       ];
 
       const message = chatMessages[Math.floor(Math.random() * chatMessages.length)];
-      
+
       // Only chat if no real players online to avoid suspicion
       if (this.realPlayersOnline.size === 0) {
         this.bot.chat(message);
@@ -2761,7 +2763,7 @@ class MinecraftBot {
       if (healingItems.length > 0) {
         const healItem = healingItems[0];
         console.log(`💊 Bot using healing item: ${healItem.name}`);
-        
+
         this.bot.equip(healItem, 'hand')
           .then(() => {
             this.bot.activateItem();
@@ -2784,18 +2786,18 @@ class MinecraftBot {
     try {
       const currentY = this.bot.entity.position.y;
       console.log(`🏊 Bot at depth ${Math.round(currentY)}, swimming to surface...`);
-      
+
       // Jump/swim upward
       this.bot.setControlState('jump', true);
       this.bot.setControlState('forward', true);
-      
+
       setTimeout(() => {
         if (this.bot && this.connected) {
           this.bot.clearControlStates();
           console.log('🌊 Bot reached better oxygen level');
         }
       }, 3000);
-      
+
     } catch (error) {
       console.log('⚠ Surface movement error:', error.message);
     }
@@ -2805,7 +2807,7 @@ class MinecraftBot {
   organizeInventory() {
     try {
       console.log('🧹 Bot organizing inventory...');
-      
+
       // Drop less useful items to make space
       const dropItems = this.bot.inventory.items().filter(item => {
         return item && item.name && (
@@ -2818,14 +2820,14 @@ class MinecraftBot {
       if (dropItems.length > 0) {
         const itemToDrop = dropItems[0];
         const dropAmount = Math.min(16, itemToDrop.count - 16); // Keep some
-        
+
         this.bot.toss(itemToDrop.type, null, dropAmount)
           .then(() => {
             console.log(`🗑️ Bot dropped ${dropAmount} ${itemToDrop.name} to make space`);
           })
           .catch(err => console.log('⚠ Item dropping failed:', err.message));
       }
-      
+
     } catch (error) {
       console.log('⚠ Inventory organization error:', error.message);
     }
@@ -2858,14 +2860,14 @@ class MinecraftBot {
   disconnect() {
     // Don't set isShuttingDown to true for 24/7 operation
     // this.isShuttingDown = true; // Commented out for 24/7 mode
-    
+
     console.log('🔄 Temporary disconnect - will auto-reconnect for 24/7 operation');
-    
+
     this.stopActivity();
     this.stopPlayerMonitoring();
     this.stopFastPlayerDetection();
     this.stopAdvancedMonitoring();
-    
+
     if (this.bot && typeof this.bot.quit === 'function') {
       try {
         this.bot.quit();
@@ -2876,7 +2878,7 @@ class MinecraftBot {
     }
     this.connected = false;
     this.status = 'temporarily_disconnected';
-    
+
     // Auto-reconnect after temporary disconnect for 24/7 operation
     if (!this.reconnectTimeout) {
       console.log('🚀 Scheduling auto-reconnect for 24/7 operation...');

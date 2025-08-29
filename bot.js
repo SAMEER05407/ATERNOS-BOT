@@ -11,7 +11,7 @@ class MinecraftBot {
     this.reconnectTimeout = null;
     this.activityInterval = null;
     this.status = 'disconnected'; // disconnected, connecting, connected
-    this.baseUsername = 'DARK_WORLD';
+    this.baseUsername = 'VISITOR_BOT';
     this.usernameCounter = 1;
     this.currentUsername = `${this.baseUsername}_${this.usernameCounter}`;
     this.isShuttingDown = false;

@@ -321,7 +321,10 @@ class MinecraftBot {
     this.bot.on('playerJoined', (player) => {
       console.log(`👤 Player joined: ${player.username}`);
 
-      // Check if it's a real player (not our bot)
+      // Allow DARK bots to join without triggering exit
+      const isDarkBot = player.username.startsWith('DARK');
+
+      // Check if it's a real player (not our bot or other DARK bots)
       const isBotPattern = 
         player.username.startsWith('DARK_WORLD') || 
         player.username.startsWith('AFK') ||
@@ -331,13 +334,16 @@ class MinecraftBot {
         /^[A-Z_]+_\d+$/.test(player.username) ||
         /^[A-Z]+\d+$/.test(player.username) ||
         player.username.toLowerCase().includes('afk') ||
-        player.username.toLowerCase().includes('bot');
+        player.username.toLowerCase().includes('bot') ||
+        isDarkBot; // DARK bots are friendly
 
       if (!isBotPattern && player.username !== this.currentUsername) {
         console.log('🚨🚨🚨 REAL PLAYER JOINED EVENT! 🚨🚨🚨');
         console.log(`Real player: ${player.username}`);
         console.log('⚡ INSTANT EXIT TRIGGERED BY EVENT');
         this.forceExitForRealPlayers([player.username]);
+      } else if (isDarkBot && player.username !== this.currentUsername) {
+        console.log(`🤖 DARK bot joined: ${player.username} - Welcome fellow DARK bot!`);
       }
     });
 
@@ -2392,17 +2398,23 @@ class MinecraftBot {
         Object.keys(this.bot.players).forEach(playerName => {
           const player = this.bot.players[playerName];
 
-          // More advanced filtering - exclude bot-like usernames
-          const isBotUsername = playerName.startsWith('DARK_WORLD') || 
+          // Allow DARK bots to coexist - don't count them as real players
+          const isDarkBot = playerName.startsWith('DARK');
+
+          // More advanced filtering - exclude bot-like usernames (but allow DARK bots)
+          const isBotUsername = (!isDarkBot && playerName.startsWith('DARK_WORLD')) || 
                               playerName.startsWith('AFK') ||
                               playerName.startsWith('BOT') ||
                               playerName.includes('_BOT') ||
-                              /^[A-Z_]+_\d+$/.test(playerName); // Pattern like WORD_NUMBER
+                              /^[A-Z_]+_\d+$/.test(playerName) || // Pattern like WORD_NUMBER
+                              isDarkBot; // DARK bots are friendly bots
 
           // Only count as real player if they have a valid entity and are actually spawned
           if (!isBotUsername && player && player.entity) {
             currentPlayers.add(playerName);
             console.log(`🔍 Detected real player: ${playerName} (UUID: ${player.uuid})`);
+          } else if (isDarkBot && playerName !== this.currentUsername) {
+            console.log(`🤖 DARK bot coexisting: ${playerName}`);
           }
         });
 
@@ -2471,9 +2483,12 @@ class MinecraftBot {
           // Skip our own bot
           if (playerName === this.currentUsername) return false;
 
-          // More comprehensive bot username patterns
+          // Allow multiple DARK bots to coexist - don't exit for DARK bots
+          const isDarkBot = playerName.startsWith('DARK');
+          
+          // More comprehensive bot username patterns (but exclude DARK bots)
           const isBotPattern = 
-            playerName.startsWith('DARK_WORLD') || 
+            (!isDarkBot && playerName.startsWith('DARK_WORLD')) || 
             playerName.startsWith('AFK') ||
             playerName.startsWith('BOT') ||
             playerName.includes('_BOT') ||
@@ -2481,7 +2496,8 @@ class MinecraftBot {
             /^[A-Z_]+_\d+$/.test(playerName) || // WORD_NUMBER
             /^[A-Z]+\d+$/.test(playerName) ||   // WORDNUMBER
             playerName.toLowerCase().includes('afk') ||
-            playerName.toLowerCase().includes('bot');
+            playerName.toLowerCase().includes('bot') ||
+            isDarkBot; // DARK bots are considered bots (friendly bots)
 
           // Player must have valid entity and not match bot patterns
           const isRealPlayer = !isBotPattern && player && player.entity;
@@ -2490,6 +2506,8 @@ class MinecraftBot {
             console.log(`🚨 REAL PLAYER DETECTED: ${playerName}`);
             console.log(`   - UUID: ${player.uuid}`);
             console.log(`   - Has entity: ${!!player.entity}`);
+          } else if (isDarkBot && playerName !== this.currentUsername) {
+            console.log(`🤖 DARK BOT DETECTED: ${playerName} - Allowing coexistence`);
           }
 
           return isRealPlayer;
